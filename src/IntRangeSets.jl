@@ -52,10 +52,10 @@ end
 
 function push!{T}(tree::Tree{T}, node::Node{T}, x::T)
     if x == node.lv - 1
-        extend_left!(tree, node, x-1)
+        node = extend_left!(tree, node, x)
         tree.cache = node
     elseif x == node.rv + 1
-        extend_right!(tree, node, x+1)
+        node = extend_right!(tree, node, x)
         tree.cache = node
     elseif x < node.lv
         if node.lc.isnull
@@ -64,7 +64,7 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::T)
             tree.cache = x
             tree.balanced = false
         else
-            push!(tree, node.lc, x)
+            push!(tree, node.lc.value, x)
         end
     elseif x > node.rv
         if node.rc.isnull
@@ -73,7 +73,7 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::T)
             tree.cache = x
             tree.balanced = false
         else
-            push!(tree, node.rc, x)
+            push!(tree, node.rc.value, x)
         end
     end
 
@@ -81,18 +81,86 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::T)
 end
 
 function extend_left!{T}(tree::Tree{T}, node::Node{T}, x::T)
+    if !node.lc.isnull
+        rmlc = right_most(tree, node.lc.value) # here can be optimized: stop at the first node that rv + 1 >= x
+        if x <= rmlc.rv + 1
+            fuse_rp!(tree, rmlc)
+        else
+            node.lv = x
+        end
+    elseif !node.lp.isnull && x <= node.lp.value.rv + 1
+        node = fuse_lp!(tree, node)
+    else
+        node.lv = x
+    end
 
+    x < node.lv ? extend_left!(tree, node, x) : node
 end
 
 function extend_right!{T}(tree::Tree{T}, node::Node{T}, x::T)
+    if !node.rc.isnull
+        lmrc = left_most(tree, node.rc.value)
+        if x >= lmrc.lv - 1
+            fuse_lp!(tree, lmrc)
+        else
+            node.rv = x
+        end
+    elseif !node.rp.isnull && x >= node.rp.value.lv - 1
+        node = fuse_rp!(tree, node)
+    else
+        node.rv = x
+    end
 
+    x > node.rv ? extend_right!(tree, node, x) : node
+end
+
+function fuse_lp!{T}(tree::Tree{T}, node::Node{T})
+    # 1. delete left subtree, as they all lie in the range of fused node
+    node.lc = nothing
+    # 2. hoist right child to the position of node
+    if node.lp.value.rc.value == node # linked to lp directly
+        node.lp.value.rc = node.rc
+    else
+        node.rp.value.lc = node.rc
+    end
+    node.rc.isnull || (node.rc.value.lp = node.lp)
+    # 3. adjust lp range
+    node.lp.value.rv = node.rv
+    # 4. track balanced property
+    tree.balanced = false
+    node.lp.value
+end
+
+function fuse_rp!{T}(tree::Tree{T}, node::Node{T})
+    node.rc = nothing
+    if node.rp.value.lc.value == node
+        node.rp.value.lc = node.lc
+    else
+        node.lp.value.rc = node.lc
+    end
+    node.lc.isnull || (node.lc.value.rp = node.rp)
+    node.rp.value.lv = node.lv
+    tree.balanced = false
+    node.rp.value
+end
+
+function rebalance!{T}(tree::Tree{T}, node::Node{T})
+    ld = node.lc.isnull ? 0 : rebalance!(node.lc.value) + 1
+    rd = node.rc.isnull ? 0 : rebalance!(node.rc.value) + 1
+    if ld - rd > 1
+
+    elseif rd - ld > 1
+
+    else # balance
+
+    end
 end
 
 #== helper ==#
 
 function between_parents{T}(x::T, node::Node{T})
-    !node.lp.isnull && x <= node.lp.value.rv && return false
-    !node.rp.isnull && x >= node.rp.value.lv && return false
+    !node.lp.isnull && x <= node.lp.value.rv + 1 && return false
+    !node.rp.isnull && x >= node.rp.value.lv - 1 && return false
     true
 end
 
@@ -109,7 +177,21 @@ function traverse{T}(f::Function, tree::Tree{T}, node::Nullable{Node{T}})
     end
 end
 
-function show{T}(io::IO, tree::IntRangeSet{T})
+function left_most{T}(tree::Tree{T}, node::Node{T})
+    while !node.lc.isnull
+        node = node.lc.value
+    end
+    node
+end
+
+function right_most{T}(tree::Tree{T}, node::Node{T})
+    while !node.rc.isnull
+        node = node.rc.value
+    end
+    node
+end
+
+function show{T}(io::IO, tree::Tree{T})
     println(io, "IntRangeSets{$T}:")
     if tree.root.isnull
         println(io, "  (empty)")
@@ -118,6 +200,14 @@ function show{T}(io::IO, tree::IntRangeSet{T})
             println(io, "  ", node.lv, ':', node.rv)
         end
     end
+end
+
+function total_size(tree::Tree)
+    n = sizeof(tree)
+    traverse(tree) do node
+        n += sizeof(node)
+    end
+    n
 end
 
 end # module IntRangeSets
