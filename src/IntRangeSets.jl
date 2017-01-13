@@ -2,7 +2,7 @@ module IntRangeSets
 
 export IntRangeSet
 
-import Base: push!, in, show, foreach, collect
+import Base: push!, in, show, foreach, collect, union, intersect
 
 type IntRange{T<:Integer}
     lv::T
@@ -144,17 +144,60 @@ function fuse_rp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
     node.rp.value
 end
 
-function rebalance!{T}(tree::Tree{T}, node::Node{T})::Int
-    ld = node.lc.isnull ? 0 : rebalance!(node.lc.value) + 1
-    rd = node.rc.isnull ? 0 : rebalance!(node.rc.value) + 1
-    if ld - rd > 1
-
-    elseif rd - ld > 1
-
-    else # balance
-
+function swap_lc!{T}(tree::Tree{T}, node::Node{T})::Node{T}
+    # 1. preserve a pointer to the right subtree
+    temp = node.lc.value.rc
+    # 2. hoist left child to the position of node
+    if !node.lp.isnull && node.lp.value.rc.value == node
+        node.lp.value.rc = node.lc
+    elseif !node.rp.isnull
+        node.rp.value.lc = node.lc
+    else # root
+        tree.root = node.lc
     end
+    # 3. inherit
+    node.lc.value.rc = node
+    node.lc.value.rp = node.rp
+    # 4. setup node itself
+    node.lp = node.lc
+    node.lc = temp
+    node.lp.value
+end
 
+function swap_rc!{T}(tree::Tree{T}, node::Node{T})::Node{T}
+    temp = node.rc.value.lc
+    if !node.rp.isnull && node.rp.value.lc.value == node
+        node.rp.value.lc = node.rc
+    elseif !node.lp.isnull
+        node.lp.value.rc = node.rc
+    else
+        tree.root = node.rc
+    end
+    node.rc.value.lc = node
+    node.rc.value.lp = node.lp
+    node.rp = node.rc
+    node.rc = temp
+    node.rp.value
+end
+
+function rebalance!{T}(tree::Tree{T})::Int
+    depth = tree.root.isnull ? 0 : rebalance!(tree, tree.root.value)
+    tree.balanced = true
+    depth
+end
+
+function rebalance!{T}(tree::Tree{T}, node::Node{T})::Int
+    ld = node.lc.isnull ? 0 : rebalance!(tree, node.lc.value)
+    rd = node.rc.isnull ? 0 : rebalance!(tree, node.rc.value)
+    if ld - rd > 1
+        swap_lc!(tree, node)
+        ld
+    elseif rd - ld > 1
+        swap_rc!(tree, node)
+        rd
+    else # balance
+        max(ld, rd) + 1
+    end
 end
 
 "apply f to each UnitRange in IntRangeSet, order is guaranteed"
@@ -172,6 +215,7 @@ function collect{T}(tree::Tree{T})::Vector{UnitRange{T}}
 end
 
 function in{T}(x::T, tree::Tree{T})::Bool
+    tree.balanced || rebalance!(tree)
     tree.root.isnull ? false : in(tree, tree.root.value, x)
 end
 
@@ -184,8 +228,6 @@ function in{T}(tree::Tree{T}, node::Node{T}, x::T)::Bool
         true
     end
 end
-
-#== helper ==#
 
 function between_parents{T}(x::T, node::Node{T})::Bool
     !node.lp.isnull && x <= node.lp.value.rv + 1 && return false
