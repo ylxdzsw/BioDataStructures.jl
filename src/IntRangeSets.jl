@@ -2,7 +2,7 @@ module IntRangeSets
 
 export IntRangeSet
 
-import Base: push!, in, show, foreach, collect, union, intersect
+import Base: push!, in, show, foreach, collect, union, union!, intersect
 
 type IntRange{T<:Integer}
     lv::T
@@ -29,7 +29,8 @@ typealias Node IntRange
 function push!{T}(tree::Tree{T}, x::T)::Tree{T}
     if tree.root.isnull
         node = Node{T}(x)
-        push!(tree, node)
+        tree.root = node
+        tree.cache = node
     elseif between_parents(x, tree.cache.value)
         push!(tree, tree.cache.value, x)
     else
@@ -39,10 +40,14 @@ function push!{T}(tree::Tree{T}, x::T)::Tree{T}
     tree
 end
 
-function push!{T}(tree::Tree{T}, node::Node{T})::Tree{T}
+function push!{T}(tree::Tree{T}, x::UnitRange{T})::Tree{T}
+    x.start <= x.stop || return tree
     if tree.root.isnull
+        node = Node{T}(x.start, x.stop)
         tree.root = node
         tree.cache = node
+    elseif between_parents(x, tree.cache.value)
+        push!(tree, tree.cache.value, x)
     else
         push!(tree, tree.root.value, x)
     end
@@ -74,6 +79,56 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::T)::Tree{T}
             tree.balanced = false
         else
             push!(tree, node.rc.value, x)
+        end
+    end
+
+    tree
+end
+
+"""
+six position relations:
++-------------------+
+     3333333333
+    2222    5555
+1111     44     6666
+       ******
++-------------------+
+1: insert to left child
+2: extend left
+3: extend both side
+4: just ingnore
+5: extend right
+6: insert to right child
+"""
+function push!{T}(tree::Tree{T}, node::Node{T}, x::UnitRange{T})::Tree{T}
+    if x.start < node.lv
+        if x.stop < node.lv - 1
+            if node.lc.isnull
+                x = Node{T}(x.start, x.stop, node.lp, node)
+                node.lc = x
+                tree.cache = x
+                tree.balanced = false
+            else
+                push!(tree, node.lc.value, x)
+            end
+        else
+            extend_left!(tree, node, x.start)
+            if x.stop > node.rv
+                extend_right!(tree, node, x.stop)
+            end
+        end
+    elseif x.stop > node.rv
+        if x.start <= node.rv + 1
+            extend_right!(tree, node, x.stop)
+        else
+            if node.rc.isnull
+                x = Node{T}(x.start, x.stop, node, node.rp)
+                node.rc = x
+                tree.cache = x
+                tree.balanced = false
+            else
+                push!(tree, node.rc.value, x)
+            end
         end
     end
 
@@ -114,25 +169,23 @@ function extend_right!{T}(tree::Tree{T}, node::Node{T}, x::T)::Node{T}
     x > node.rv ? extend_right!(tree, node, x) : node
 end
 
+# left subtree will be lost, as they are covered by the fused node
 function fuse_lp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
-    # 1. delete left subtree, as they all lie in the range of fused node
-    node.lc = nothing
-    # 2. hoist right child to the position of node
+    # 1. hoist right child to the position of node
     if node.lp.value.rc.value == node # linked to lp directly
         node.lp.value.rc = node.rc
     else
         node.rp.value.lc = node.rc
     end
     node.rc.isnull || (node.rc.value.lp = node.lp)
-    # 3. adjust lp range
+    # 2. adjust lp range
     node.lp.value.rv = node.rv
-    # 4. track balanced property
+    # 3. track balanced property
     tree.balanced = false
     node.lp.value
 end
 
 function fuse_rp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
-    node.rc = nothing
     if node.rp.value.lc.value == node
         node.rp.value.lc = node.lc
     else
@@ -161,6 +214,7 @@ function swap_lc!{T}(tree::Tree{T}, node::Node{T})::Node{T}
     # 4. setup node itself
     node.lp = node.lc
     node.lc = temp
+    # 5. return the node in the origin position
     node.lp.value
 end
 
@@ -186,6 +240,7 @@ function rebalance!{T}(tree::Tree{T})::Int
     depth
 end
 
+# TODO: this is O(n) operation. Maybe we should store balance factor in each node?
 function rebalance!{T}(tree::Tree{T}, node::Node{T})::Int
     ld = node.lc.isnull ? 0 : rebalance!(tree, node.lc.value)
     rd = node.rc.isnull ? 0 : rebalance!(tree, node.rc.value)
@@ -195,7 +250,7 @@ function rebalance!{T}(tree::Tree{T}, node::Node{T})::Int
     elseif rd - ld > 1
         swap_rc!(tree, node)
         rd
-    else # balance
+    else # already balance
         max(ld, rd) + 1
     end
 end
@@ -212,6 +267,58 @@ function collect{T}(tree::Tree{T})::Vector{UnitRange{T}}
     list = UnitRange{T}[]
     foreach(x->push!(list, x), tree)
     list
+end
+
+function union{T}(t1::Tree{T}, t2::Tree{T})::Tree{T}
+    tree = Tree{T}()
+    union!(tree, t1)
+    union!(tree, t2)
+    tree
+end
+
+function union{T}(ts::Tree{T}...)::Tree{T}
+    tree = Tree{T}()
+    for t in ts
+        union!(tree, t)
+    end
+    tree
+end
+
+function union!{T}(t1::Tree{T}, t2)::Tree{T}
+    tree.balanced || rebalance!(tree)
+    foreach(x->push!(t1, x), t2)
+    t1
+end
+
+function intersect{T}(t1::Tree{T}, t2::Tree{T})::Tree{T}
+    tree = Tree{T}()
+    t1.balanced || rebalance!(t1)
+    foreach(t2) do x
+        push!(tree, intersect(t1, x))
+    end
+    tree
+end
+
+function intersect{T}(tree::Tree{T}, x::UnitRange{T})::Tree{T}
+    if !tree.root.isnull
+        intersect(tree, tree.root.value, x)
+    else
+        x.start:x.start-1
+    end
+end
+
+function intersect{T}(tree::Tree{T}, node::Node{T}, x::UnitRange{T})::Tree{T}
+    if x.stop < node.lv
+        node.lc.isnull ? x.start:x.start-1 : intersect(tree, node.lc.value, x)
+    elseif x.start > node.rv
+        node.rc.isnull ? x.start:x.start-1 : intersect(tree, node.rc.value, x)
+    else
+        max(x.start, node.lv):min(x.stop, node.rv)
+    end
+end
+
+function intersect{T}(x::UnitRange{T}, tree::Tree{T})::Tree{T}
+    intersect(tree, x)
 end
 
 function in{T}(x::T, tree::Tree{T})::Bool
@@ -232,6 +339,12 @@ end
 function between_parents{T}(x::T, node::Node{T})::Bool
     !node.lp.isnull && x <= node.lp.value.rv + 1 && return false
     !node.rp.isnull && x >= node.rp.value.lv - 1 && return false
+    true
+end
+
+function between_parents{T}(x::UnitRange{T}, node::Node{T})::Bool
+    !node.lp.isnull && x.start <= node.lp.value.rv + 1 && return false
+    !node.rp.isnull && x.stop  >= node.rp.value.lv - 1 && return false
     true
 end
 
@@ -271,14 +384,6 @@ function show{T}(io::IO, tree::Tree{T})::Void
             println(io, "  ", node.lv, ':', node.rv)
         end
     end
-end
-
-function total_size(tree::Tree)::Int
-    n = sizeof(tree)
-    traverse(tree) do node
-        n += sizeof(node)
-    end
-    n
 end
 
 end # module IntRangeSets

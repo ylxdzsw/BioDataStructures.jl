@@ -9,7 +9,7 @@ A tree based datastructure holds Integers. Ideally for bed in NGS.
 ### Feature
 
 - use a cache to make inserting integer incrementally (eg. `push!(t, 2, 3, 4, 6, 8, 9)`) in O(1), even when the tree is not balanced.
-- automatically balance the tree when quering or performing set operations like `intersect`.
+- automatically balance the tree when performing quering.
 - use a dense structure aiming to save high-scale, clustered integers (more specifically, bed-like data in NGS).
 
 ### Installation
