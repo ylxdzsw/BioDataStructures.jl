@@ -24,6 +24,55 @@ run [test/benchmark.jl](test/benchmark.jl) to get your local performance.
 
 ### Example
 
+```julia
+using IntRangeSets
+
+a = IntRangeSet{Int}()
+
+push!(a, 2)
+push!(a, 4:5)
+show(a)
+
+# IntRangeSets{Int64}:
+#  2:2
+#  4:5
+
+push!(a, 3)
+show(a)
+
+# IntRangeSets{Int64}:
+#   2:5
+
+3 in a # true
+
+b = IntRangeSet{Int}()
+push!(b, 4:8)
+push!(b, 2)
+foreach(println, b)
+
+# 2:2
+# 4:8
+
+c = union(a, b)
+show(c)
+
+# IntRangeSets{Int64}:
+#   2:8
+
+c = intersect(a, b)
+show(c)
+
+# IntRangeSets{Int64}:
+#   2:2
+#   4:5
+
+collect(c)
+
+# 2-element Array{UnitRange{Int64},1}:
+#  2:2
+#  4:5
+```
+
 see [test/runtests.jl](test/runtests.jl) for all usages.
 
 
