@@ -6,7 +6,7 @@ IntRangeSets.jl
 
 A tree based datastructure holds Integers. Ideally for bed in NGS.
 
-### Feature
+### Features
 
 - use a cache to make inserting integer incrementally (eg. `push!(t, 2, 3, 4, 6, 8, 9)`) in O(1), even when the tree is not balanced.
 - automatically balance the tree when performing quering.
@@ -20,10 +20,10 @@ Pkg.clone("https://github.com/ylxdzsw/IntRangeSets.jl")
 
 ### Benchmark
 
-run [test/benchmark.jl](blob/master/test/benchmark.jl) to get your local performance.
+run [test/benchmark.jl](test/benchmark.jl) to get your local performance.
 
 ### Example
 
-see [test/runtests.jl](blob/master/test/runtests.jl) for all usages.
+see [test/runtests.jl](test/runtests.jl) for all usages.
 
 

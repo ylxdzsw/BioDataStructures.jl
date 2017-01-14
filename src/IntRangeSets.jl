@@ -285,40 +285,33 @@ function union{T}(ts::Tree{T}...)::Tree{T}
 end
 
 function union!{T}(t1::Tree{T}, t2)::Tree{T}
-    tree.balanced || rebalance!(tree)
+    t1.balanced || rebalance!(t1)
     foreach(x->push!(t1, x), t2)
     t1
 end
 
 function intersect{T}(t1::Tree{T}, t2::Tree{T})::Tree{T}
     tree = Tree{T}()
-    t1.balanced || rebalance!(t1)
-    foreach(t2) do x
-        push!(tree, intersect(t1, x))
+    a, b = collect(t1), collect(t2)
+    i, j = 1, 1
+
+    while true
+        if i > length(a) || j > length(b)
+            break
+        end
+
+        start = max(a[i].start, b[j].start)
+
+        if a[i].stop < b[j].stop
+            push!(tree, start:a[i].stop)
+            i += 1
+        else
+            push!(tree, start:b[j].stop)
+            j += 1
+        end
     end
+
     tree
-end
-
-function intersect{T}(tree::Tree{T}, x::UnitRange{T})::Tree{T}
-    if !tree.root.isnull
-        intersect(tree, tree.root.value, x)
-    else
-        x.start:x.start-1
-    end
-end
-
-function intersect{T}(tree::Tree{T}, node::Node{T}, x::UnitRange{T})::Tree{T}
-    if x.stop < node.lv
-        node.lc.isnull ? x.start:x.start-1 : intersect(tree, node.lc.value, x)
-    elseif x.start > node.rv
-        node.rc.isnull ? x.start:x.start-1 : intersect(tree, node.rc.value, x)
-    else
-        max(x.start, node.lv):min(x.stop, node.rv)
-    end
-end
-
-function intersect{T}(x::UnitRange{T}, tree::Tree{T})::Tree{T}
-    intersect(tree, x)
 end
 
 function in{T}(x::T, tree::Tree{T})::Bool
