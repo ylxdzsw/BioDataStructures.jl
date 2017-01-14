@@ -18,10 +18,6 @@ A tree based datastructure holds Integers. Ideally for bed in NGS.
 Pkg.clone("https://github.com/ylxdzsw/IntRangeSets.jl")
 ```
 
-### Benchmark
-
-run [test/benchmark.jl](test/benchmark.jl) to get your local performance.
-
 ### Example
 
 ```julia
@@ -75,4 +71,6 @@ collect(c)
 
 see [test/runtests.jl](test/runtests.jl) for all usages.
 
+### Benchmark
 
+run [test/benchmark.jl](test/benchmark.jl) to get your local performance.

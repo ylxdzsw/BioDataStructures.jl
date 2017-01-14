@@ -81,5 +81,23 @@ end
 end
 
 @testset "additional random test" begin
+    a = IntSet()
+    b = IntRangeSet{Int}()
 
+    for i in 1:50_000
+        data = rand(1:1_000_000)
+        if rand() < .2 # range
+            data = data:data+rand(1:5)^2
+            foreach(x->push!(a, x), data)
+            push!(b, data)
+        else # singel integer
+            push!(a, data)
+            push!(b, data)
+        end
+    end
+
+    for i in 1:200_000
+        data = rand(1:1_000_025)
+        @test (data in a) == (data in b)
+    end
 end

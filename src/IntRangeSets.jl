@@ -57,10 +57,10 @@ end
 
 function push!{T}(tree::Tree{T}, node::Node{T}, x::T)::Tree{T}
     if x == node.lv - 1
-        node = extend_left!(tree, node, x)
+        extend_left!(tree, node, x)
         tree.cache = node
     elseif x == node.rv + 1
-        node = extend_right!(tree, node, x)
+        extend_right!(tree, node, x)
         tree.cache = node
     elseif x < node.lv
         if node.lc.isnull
@@ -116,10 +116,12 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::UnitRange{T})::Tree{T}
             if x.stop > node.rv
                 extend_right!(tree, node, x.stop)
             end
+            tree.cache = node
         end
     elseif x.stop > node.rv
         if x.start <= node.rv + 1
             extend_right!(tree, node, x.stop)
+            tree.cache = node
         else
             if node.rc.isnull
                 x = Node{T}(x.start, x.stop, node, node.rp)
@@ -143,8 +145,6 @@ function extend_left!{T}(tree::Tree{T}, node::Node{T}, x::T)::Node{T}
         else
             node.lv = x
         end
-    elseif !node.lp.isnull && x <= node.lp.value.rv + 1
-        node = fuse_lp!(tree, node)
     else
         node.lv = x
     end
@@ -160,8 +160,6 @@ function extend_right!{T}(tree::Tree{T}, node::Node{T}, x::T)::Node{T}
         else
             node.rv = x
         end
-    elseif !node.rp.isnull && x >= node.rp.value.lv - 1
-        node = fuse_rp!(tree, node)
     else
         node.rv = x
     end
@@ -177,10 +175,15 @@ function fuse_lp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
     else
         node.rp.value.lc = node.rc
     end
-    node.rc.isnull || (node.rc.value.lp = node.lp)
-    # 2. adjust lp range
+    # 2. inherit lp
+    p = node.rc
+    while !p.isnull
+        p.value.lp = node.lp
+        p = p.value.lc
+    end
+    # 3. adjust lp range
     node.lp.value.rv = node.rv
-    # 3. track balanced property
+    # 4. track balanced property
     tree.balanced = false
     node.lp.value
 end
@@ -191,7 +194,11 @@ function fuse_rp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
     else
         node.lp.value.rc = node.lc
     end
-    node.lc.isnull || (node.lc.value.rp = node.rp)
+    p = node.lc
+    while !p.isnull
+        p.value.rp = node.rp
+        p = p.value.rc
+    end
     node.rp.value.lv = node.lv
     tree.balanced = false
     node.rp.value
@@ -312,6 +319,11 @@ function intersect{T}(t1::Tree{T}, t2::Tree{T})::Tree{T}
     end
 
     tree
+end
+
+# TODO: intersect all in one pass
+function intersect{T}(ts::Tree{T}...)::Tree{T}
+    reduce(intersect, ts)
 end
 
 function in{T}(x::T, tree::Tree{T})::Bool
