@@ -2,6 +2,6 @@ language: julia
 julia:
   - 0.5
 script:
-  - julia -e 'Pkg.clone(pwd()); Pkg.build("IntRangeSets"); Pkg.test("IntRangeSets", coverage=true)'
+  - julia -e 'Pkg.clone(pwd()); Pkg.build("BioDataStructures"); Pkg.test("BioDataStructures", coverage=true)'
 after_success:
-  - julia -e 'cd(Pkg.dir("IntRangeSets")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(process_folder())'
+  - julia -e 'cd(Pkg.dir("BioDataStructures")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(process_folder())'

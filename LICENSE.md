@@ -1,4 +1,4 @@
-The IntRangeSets.jl package is licensed under the MIT License:
+The BioDataStructures.jl package is licensed under the MIT License:
 
 > Copyright (c) 2017: Zhang ShiWei.
 >

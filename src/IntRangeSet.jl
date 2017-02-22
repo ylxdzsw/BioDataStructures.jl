@@ -1,5 +1,3 @@
-module IntRangeSets
-
 export IntRangeSet
 
 import Base: push!, in, show, foreach, collect, union, union!, intersect
@@ -390,5 +388,3 @@ function show{T}(io::IO, tree::Tree{T})::Void
         end
     end
 end
-
-end # module IntRangeSets

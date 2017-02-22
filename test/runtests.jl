@@ -1,4 +1,4 @@
-using IntRangeSets
+using BioDataStructures
 using Base.Test
 
 @testset "push integers" begin

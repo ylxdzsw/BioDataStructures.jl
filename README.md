@@ -1,28 +1,31 @@
-IntRangeSets.jl
-===============
+BioDataStructures.jl
+====================
 
-[![Build Status](https://travis-ci.org/ylxdzsw/IntRangeSets.jl.svg?branch=master)](https://travis-ci.org/ylxdzsw/IntRangeSets.jl)
-[![Coverage Status](https://coveralls.io/repos/github/ylxdzsw/IntRangeSets.jl/badge.svg?branch=master)](https://coveralls.io/github/ylxdzsw/IntRangeSets.jl?branch=master)
+[![Build Status](https://travis-ci.org/ylxdzsw/BioDataStructures.jl.svg?branch=master)](https://travis-ci.org/ylxdzsw/BioDataStructures.jl)
+[![Coverage Status](https://coveralls.io/repos/github/ylxdzsw/BioDataStructures.jl/badge.svg?branch=master)](https://coveralls.io/github/ylxdzsw/BioDataStructures.jl?branch=master)
+
+### Installation
+
+```julia
+Pkg.clone("https://github.com/ylxdzsw/BioDataStructures.jl")
+using BioDataStructures
+```
+
+Currently works for Julia v0.5 only.
+
+### IntRangeSet
 
 A tree based datastructure holds Integers. Ideally for bed in NGS.
 
-### Features
+#### Features
 
 - use a cache to make inserting integer incrementally (eg. `push!(t, 2, 3, 4, 6, 8, 9)`) in O(1), even when the tree is not balanced.
 - automatically balance the tree when performing quering.
 - use a dense structure aiming to save high-scale, clustered integers (more specifically, bed-like data in NGS).
 
-### Installation
+#### Example
 
 ```julia
-Pkg.clone("https://github.com/ylxdzsw/IntRangeSets.jl")
-```
-
-### Example
-
-```julia
-using IntRangeSets
-
 a = IntRangeSet{Int}()
 
 push!(a, 2)
@@ -68,8 +71,6 @@ collect(c)
 #  2:2
 #  4:5
 ```
-
-see [test/runtests.jl](test/runtests.jl) for all usages.
 
 ### Benchmark
 
