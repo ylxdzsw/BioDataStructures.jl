@@ -19,14 +19,11 @@ type IntRangeSet{T<:Integer} # <: Base.AbstractSet{T}
     IntRangeSet() = new(true, nothing, nothing)
 end
 
-typealias Tree IntRangeSet
-typealias Node IntRange
-
 # NOTE: tree.cache only used and updated in `push!` methods
 
-function push!{T}(tree::Tree{T}, x::T)::Tree{T}
+function push!{T}(tree::IntRangeSet{T}, x::T)::IntRangeSet{T}
     if tree.root.isnull
-        node = Node{T}(x)
+        node = IntRange{T}(x)
         tree.root = node
         tree.cache = node
     elseif between_parents(x, tree.cache.value)
@@ -38,10 +35,10 @@ function push!{T}(tree::Tree{T}, x::T)::Tree{T}
     tree
 end
 
-function push!{T}(tree::Tree{T}, x::UnitRange{T})::Tree{T}
+function push!{T}(tree::IntRangeSet{T}, x::UnitRange{T})::IntRangeSet{T}
     x.start <= x.stop || return tree
     if tree.root.isnull
-        node = Node{T}(x.start, x.stop)
+        node = IntRange{T}(x.start, x.stop)
         tree.root = node
         tree.cache = node
     elseif between_parents(x, tree.cache.value)
@@ -53,7 +50,7 @@ function push!{T}(tree::Tree{T}, x::UnitRange{T})::Tree{T}
     tree
 end
 
-function push!{T}(tree::Tree{T}, node::Node{T}, x::T)::Tree{T}
+function push!{T}(tree::IntRangeSet{T}, node::IntRange{T}, x::T)::IntRangeSet{T}
     if x == node.lv - 1
         extend_left!(tree, node, x)
         tree.cache = node
@@ -62,7 +59,7 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::T)::Tree{T}
         tree.cache = node
     elseif x < node.lv
         if node.lc.isnull
-            x = Node{T}(x, x, node.lp, node)
+            x = IntRange{T}(x, x, node.lp, node)
             node.lc = x
             tree.cache = x
             tree.balanced = false
@@ -71,7 +68,7 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::T)::Tree{T}
         end
     elseif x > node.rv
         if node.rc.isnull
-            x = Node{T}(x, x, node, node.rp)
+            x = IntRange{T}(x, x, node, node.rp)
             node.rc = x
             tree.cache = x
             tree.balanced = false
@@ -98,11 +95,11 @@ six position relations:
 5: extend right
 6: insert to right child
 """
-function push!{T}(tree::Tree{T}, node::Node{T}, x::UnitRange{T})::Tree{T}
+function push!{T}(tree::IntRangeSet{T}, node::IntRange{T}, x::UnitRange{T})::IntRangeSet{T}
     if x.start < node.lv
         if x.stop < node.lv - 1
             if node.lc.isnull
-                x = Node{T}(x.start, x.stop, node.lp, node)
+                x = IntRange{T}(x.start, x.stop, node.lp, node)
                 node.lc = x
                 tree.cache = x
                 tree.balanced = false
@@ -122,7 +119,7 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::UnitRange{T})::Tree{T}
             tree.cache = node
         else
             if node.rc.isnull
-                x = Node{T}(x.start, x.stop, node, node.rp)
+                x = IntRange{T}(x.start, x.stop, node, node.rp)
                 node.rc = x
                 tree.cache = x
                 tree.balanced = false
@@ -135,7 +132,7 @@ function push!{T}(tree::Tree{T}, node::Node{T}, x::UnitRange{T})::Tree{T}
     tree
 end
 
-function extend_left!{T}(tree::Tree{T}, node::Node{T}, x::T)::Node{T}
+function extend_left!{T}(tree::IntRangeSet{T}, node::IntRange{T}, x::T)::IntRange{T}
     if !node.lc.isnull
         rmlc = right_most(tree, node.lc.value) # here can be optimized: stop at the first node that rv + 1 >= x
         if x <= rmlc.rv + 1
@@ -150,7 +147,7 @@ function extend_left!{T}(tree::Tree{T}, node::Node{T}, x::T)::Node{T}
     x < node.lv ? extend_left!(tree, node, x) : node
 end
 
-function extend_right!{T}(tree::Tree{T}, node::Node{T}, x::T)::Node{T}
+function extend_right!{T}(tree::IntRangeSet{T}, node::IntRange{T}, x::T)::IntRange{T}
     if !node.rc.isnull
         lmrc = left_most(tree, node.rc.value)
         if x >= lmrc.lv - 1
@@ -166,7 +163,7 @@ function extend_right!{T}(tree::Tree{T}, node::Node{T}, x::T)::Node{T}
 end
 
 # left subtree will be lost, as they are covered by the fused node
-function fuse_lp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
+function fuse_lp!{T}(tree::IntRangeSet{T}, node::IntRange{T})::IntRange{T}
     # 1. hoist right child to the position of node
     if node.lp.value.rc.value == node # linked to lp directly
         node.lp.value.rc = node.rc
@@ -186,7 +183,7 @@ function fuse_lp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
     node.lp.value
 end
 
-function fuse_rp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
+function fuse_rp!{T}(tree::IntRangeSet{T}, node::IntRange{T})::IntRange{T}
     if node.rp.value.lc.value == node
         node.rp.value.lc = node.lc
     else
@@ -202,7 +199,7 @@ function fuse_rp!{T}(tree::Tree{T}, node::Node{T})::Node{T}
     node.rp.value
 end
 
-function swap_lc!{T}(tree::Tree{T}, node::Node{T})::Node{T}
+function swap_lc!{T}(tree::IntRangeSet{T}, node::IntRange{T})::IntRange{T}
     # 1. preserve a pointer to the right subtree
     temp = node.lc.value.rc
     # 2. hoist left child to the position of node
@@ -223,7 +220,7 @@ function swap_lc!{T}(tree::Tree{T}, node::Node{T})::Node{T}
     node.lp.value
 end
 
-function swap_rc!{T}(tree::Tree{T}, node::Node{T})::Node{T}
+function swap_rc!{T}(tree::IntRangeSet{T}, node::IntRange{T})::IntRange{T}
     temp = node.rc.value.lc
     if !node.rp.isnull && node.rp.value.lc.value == node
         node.rp.value.lc = node.rc
@@ -239,14 +236,14 @@ function swap_rc!{T}(tree::Tree{T}, node::Node{T})::Node{T}
     node.rp.value
 end
 
-function rebalance!{T}(tree::Tree{T})::Int
+function rebalance!{T}(tree::IntRangeSet{T})::Int
     depth = tree.root.isnull ? 0 : rebalance!(tree, tree.root.value)
     tree.balanced = true
     depth
 end
 
 # TODO: this is O(n) operation. Maybe we should store balance factor in each node?
-function rebalance!{T}(tree::Tree{T}, node::Node{T})::Int
+function rebalance!{T}(tree::IntRangeSet{T}, node::IntRange{T})::Int
     ld = node.lc.isnull ? 0 : rebalance!(tree, node.lc.value)
     rd = node.rc.isnull ? 0 : rebalance!(tree, node.rc.value)
     if ld - rd > 1
@@ -261,42 +258,42 @@ function rebalance!{T}(tree::Tree{T}, node::Node{T})::Int
 end
 
 "apply f to each UnitRange in IntRangeSet, order is guaranteed"
-function foreach{T}(f::Function, tree::Tree{T})::Void
+function foreach{T}(f::Function, tree::IntRangeSet{T})::Void
     traverse(tree) do node
         f(node.lv:node.rv)
     end
 end
 
 "get a list of UnitRange that is in IntRangeSet, order is guaranteed"
-function collect{T}(tree::Tree{T})::Vector{UnitRange{T}}
+function collect{T}(tree::IntRangeSet{T})::Vector{UnitRange{T}}
     list = UnitRange{T}[]
     foreach(x->push!(list, x), tree)
     list
 end
 
-function union{T}(t1::Tree{T}, t2::Tree{T})::Tree{T}
-    tree = Tree{T}()
+function union{T}(t1::IntRangeSet{T}, t2::IntRangeSet{T})::IntRangeSet{T}
+    tree = IntRangeSet{T}()
     union!(tree, t1)
     union!(tree, t2)
     tree
 end
 
-function union{T}(ts::Tree{T}...)::Tree{T}
-    tree = Tree{T}()
+function union{T}(ts::IntRangeSet{T}...)::IntRangeSet{T}
+    tree = IntRangeSet{T}()
     for t in ts
         union!(tree, t)
     end
     tree
 end
 
-function union!{T}(t1::Tree{T}, t2)::Tree{T}
+function union!{T}(t1::IntRangeSet{T}, t2)::IntRangeSet{T}
     t1.balanced || rebalance!(t1)
     foreach(x->push!(t1, x), t2)
     t1
 end
 
-function intersect{T}(t1::Tree{T}, t2::Tree{T})::Tree{T}
-    tree = Tree{T}()
+function intersect{T}(t1::IntRangeSet{T}, t2::IntRangeSet{T})::IntRangeSet{T}
+    tree = IntRangeSet{T}()
     a, b = collect(t1), collect(t2)
     i, j = 1, 1
 
@@ -320,16 +317,16 @@ function intersect{T}(t1::Tree{T}, t2::Tree{T})::Tree{T}
 end
 
 # TODO: intersect all in one pass
-function intersect{T}(ts::Tree{T}...)::Tree{T}
+function intersect{T}(ts::IntRangeSet{T}...)::IntRangeSet{T}
     reduce(intersect, ts)
 end
 
-function in{T}(x::T, tree::Tree{T})::Bool
+function in{T}(x::T, tree::IntRangeSet{T})::Bool
     tree.balanced || rebalance!(tree)
     tree.root.isnull ? false : in(tree, tree.root.value, x)
 end
 
-function in{T}(tree::Tree{T}, node::Node{T}, x::T)::Bool
+function in{T}(tree::IntRangeSet{T}, node::IntRange{T}, x::T)::Bool
     if x < node.lv
         node.lc.isnull ? false : in(tree, node.lc.value, x)
     elseif x > node.rv
@@ -339,23 +336,23 @@ function in{T}(tree::Tree{T}, node::Node{T}, x::T)::Bool
     end
 end
 
-function between_parents{T}(x::T, node::Node{T})::Bool
+function between_parents{T}(x::T, node::IntRange{T})::Bool
     !node.lp.isnull && x <= node.lp.value.rv + 1 && return false
     !node.rp.isnull && x >= node.rp.value.lv - 1 && return false
     true
 end
 
-function between_parents{T}(x::UnitRange{T}, node::Node{T})::Bool
+function between_parents{T}(x::UnitRange{T}, node::IntRange{T})::Bool
     !node.lp.isnull && x.start <= node.lp.value.rv + 1 && return false
     !node.rp.isnull && x.stop  >= node.rp.value.lv - 1 && return false
     true
 end
 
-function traverse{T}(f::Function, tree::Tree{T})::Void
+function traverse{T}(f::Function, tree::IntRangeSet{T})::Void
     traverse(f, tree, tree.root)
 end
 
-function traverse{T}(f::Function, tree::Tree{T}, node::Nullable{Node{T}})::Void
+function traverse{T}(f::Function, tree::IntRangeSet{T}, node::Nullable{IntRange{T}})::Void
     if !node.isnull
         node = node.value
         traverse(f, tree, node.lc)
@@ -364,21 +361,21 @@ function traverse{T}(f::Function, tree::Tree{T}, node::Nullable{Node{T}})::Void
     end
 end
 
-function left_most{T}(tree::Tree{T}, node::Node{T})::Node{T}
+function left_most{T}(tree::IntRangeSet{T}, node::IntRange{T})::IntRange{T}
     while !node.lc.isnull
         node = node.lc.value
     end
     node
 end
 
-function right_most{T}(tree::Tree{T}, node::Node{T})::Node{T}
+function right_most{T}(tree::IntRangeSet{T}, node::IntRange{T})::IntRange{T}
     while !node.rc.isnull
         node = node.rc.value
     end
     node
 end
 
-function show{T}(io::IO, tree::Tree{T})::Void
+function show{T}(io::IO, tree::IntRangeSet{T})::Void
     println(io, "IntRangeSets{$T}:")
     if tree.root.isnull
         println(io, "  (empty)")
