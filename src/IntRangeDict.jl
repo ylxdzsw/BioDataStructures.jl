@@ -29,10 +29,10 @@ function find_binary{K, V}(dict::IntRangeDict{K, V}, int::K)::Int
     v(i) = dict.data[i].lv
 
     find_within(i, j) = if i == j
-        v[i] <= int ? i : i - 1
+        v(i) <= int ? i : i - 1
     else
         m = (i + j + 1) ÷ 2
-        v[m] <= int ? find_within(m, j) :
+        v(m) <= int ? find_within(m, j) :
                       find_within(i, m-1)
     end
 
@@ -109,7 +109,7 @@ function push_aligned_right!{K, V}(dict::IntRangeDict{K, V}, rv::K, v::V, i::Int
             insert!(dict.data, i+1, IntRangeSpan{K, V}(p.rv+1, rv, [v]))
         else
             insert!(dict.data, i+1, IntRangeSpan{K, V}(p.rv+1, pnext.lv-1, [v]))
-            push_aligned_left!(dict, rv, v, i+1)
+            push_aligned_left!(dict, rv, v, i+2)
         end
     else
         push!(dict.data, IntRangeSpan{K, V}(p.rv+1, rv, [v]))
@@ -131,4 +131,9 @@ function show{K, V}(io::IO, dict::IntRangeDict{K, V})::Void
             println(io, "  ", range.start, '-', range.stop, ": ", join(data, ','))
         end
     end
+end
+
+function getindex{K, V}(dict::IntRangeDict{K, V}, index::K)::Vector{V}
+    i = find_binary(dict, index)
+    i == 0 || dict.data[i].rv < index ? [] : dict.data[i].data
 end
