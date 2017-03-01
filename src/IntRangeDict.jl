@@ -1,4 +1,4 @@
-export IntRangeDict
+export IntRangeDict, save
 
 import Base: push!, in, show, foreach, collect, getindex, read, write
 
@@ -10,7 +10,18 @@ end
 
 immutable IntRangeDict{K<:Integer, V}
     data::Vector{IntRangeSpan{K, V}}
-    IntRangeDict() = new([])
+    IntRangeDict(data::Vector=[]) = new(data)
+    IntRangeDict(io::IO) = begin
+        n = read(io, Int)
+        data = Vector{IntRangeSpan{K, V}}(n)
+        for i in 1:n
+            lv = read(io, K)
+            rv = read(io, K)
+            len = read(io, Int)
+            data[i] = IntRangeSpan{K, V}(lv, rv, read(io, V, len))
+        end
+        IntRangeDict{K, V}(data)
+    end
 end
 
 immutable IntRangeHandler{K<:Integer, V}
@@ -136,4 +147,13 @@ end
 function getindex{K, V}(dict::IntRangeDict{K, V}, index::K)::Vector{V}
     i = find_binary(dict, index)
     i == 0 || dict.data[i].rv < index ? [] : dict.data[i].data
+end
+
+function save{K, V}(dict::IntRangeDict{K, V})::Vector{UInt8}
+    buffer = IOBuffer()
+    write(buffer, length(dict.data))
+    for i in dict.data
+        write(buffer, i.lv, i.rv, length(i.data), i.data)
+    end
+    takebuf_array(buffer)
 end
