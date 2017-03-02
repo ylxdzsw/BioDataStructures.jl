@@ -30,12 +30,15 @@ end
 
 @testset "IntRangeDict_save_and_load" begin
     x = IntRangeDict{Int, Int}()
+    buf = IOBuffer()
 
     push!(x[4:5], 1)
     push!(x[7:8], 2)
-    buf = save(x)
+    save(buf, x)
 
-    y = IntRangeDict{Int, Int}(IOBuffer(buf))
+    seekstart(buf)
+
+    y = IntRangeDict{Int, Int}(buf)
     @test y[3] == []
     @test y[5] == [1]
     @test y[6] == []

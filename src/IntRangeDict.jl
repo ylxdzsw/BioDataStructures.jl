@@ -149,11 +149,9 @@ function getindex{K, V}(dict::IntRangeDict{K, V}, index::K)::Vector{V}
     i == 0 || dict.data[i].rv < index ? [] : dict.data[i].data
 end
 
-function save{K, V}(dict::IntRangeDict{K, V})::Vector{UInt8}
-    buffer = IOBuffer()
-    write(buffer, length(dict.data))
+function save{K, V}(io::IO, dict::IntRangeDict{K, V})
+    write(io, length(dict.data))
     for i in dict.data
-        write(buffer, i.lv, i.rv, length(i.data), i.data)
+        write(io, i.lv, i.rv, length(i.data), i.data)
     end
-    takebuf_array(buffer)
 end
